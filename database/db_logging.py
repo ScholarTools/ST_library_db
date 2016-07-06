@@ -5,7 +5,7 @@ import datetime
 
 # Local imports
 from reference_resolver.rr_errors import *
-import db_tables as tables
+import database.db_tables as tables
 from database import Session
 from pypub.paper_info import PaperInfo
 from pypub.scrapers.base_objects import *
@@ -55,7 +55,7 @@ def log_info(paper_info):
         #raise DatabaseError('Paper already exists in database')
 
     # Create entry for main paper table
-    main_entry = _create_entry_table_obj(paper_info)
+    main_entry = create_entry_table_obj(paper_info)
 
     # Check if this paper has already been referenced and is in the references table
     ref_table_id = _fetch_id(session=session, table_name=tables.References, doi=doi, title=main_entry.title)
@@ -73,20 +73,21 @@ def log_info(paper_info):
     # Add author information to author database
     entry = paper_info.entry
     if entry is not None:
-        for a in entry.get('authors'):
+        for a in entry.authors:
             db_author_entry = _create_author_table_obj(main_paper_id=main_paper_id, author=a)
             session.add(db_author_entry)
 
     # Add each reference to the references table
     refs = paper_info.references
     ref_list = []
-    for ref in refs:
-        db_ref_entry = _create_ref_table_obj(ref)
-        main_table_id = _fetch_id(session=session, table_name=tables.MainPaperInfo, doi=db_ref_entry.doi,
-                                  title=db_ref_entry.title)
-        db_ref_entry.main_table_id = main_table_id
-        ref_list.append(db_ref_entry)
-        session.add(db_ref_entry)
+    if refs is not None:
+        for ref in refs:
+            db_ref_entry = _create_ref_table_obj(ref)
+            main_table_id = _fetch_id(session=session, table_name=tables.MainPaperInfo, doi=db_ref_entry.doi,
+                                      title=db_ref_entry.title)
+            db_ref_entry.main_table_id = main_table_id
+            ref_list.append(db_ref_entry)
+            session.add(db_ref_entry)
 
     session.flush()
 
@@ -131,14 +132,72 @@ def delete_info(doi):
         for map in entry_map:
             session.delete(map)
 
-
     import pdb
     pdb.set_trace()
 
     _end(session)
 
 
+def update_entry_field(identifying_value, updating_field, updating_value, filter_by_title=False, filter_by_doi=False):
+    """
+    Updates a field or fields within the MainPaperInfo database table.
+
+    Parameters
+    ----------
+    identifying_value : str
+        Can be a paper title or DOI - used to identify which entries are being updated.
+    updating_field : str or list
+        The field(s) of the database table to be updated.
+    updating_value : str or list
+        The value(s) to populate the updating field(s).
+    filter_by_title : bool
+    filter_by_doi : bool
+
+    """
+    session = Session()
+    if filter_by_title:
+        entries = session.query(tables.MainPaperInfo).filter_by(title = identifying_value).all()
+    elif filter_by_doi:
+        entries = session.query(tables.MainPaperInfo).filter_by(doi = identifying_value).all()
+    else:
+        _end(session)
+        return
+
+    entries = _update_objects(entries, updating_field=updating_field, updating_value=updating_value)
+    _end(session)
+
+
+def update_author_field(identifying_value, updating_field, updating_value, filter_by_title=False, filter_by_doi=False):
+    """
+    Updates a field or fields within the Authors database table.
+
+    Parameters
+    ----------
+    See 'update_entry_field'
+
+    """
+    session = Session()
+    if filter_by_title:
+        entries = session.query(tables.Authors).filter_by(title = identifying_value).all()
+    elif filter_by_doi:
+        entries = session.query(tables.Authors).filter_by(doi = identifying_value).all()
+    else:
+        _end(session)
+        return
+
+    entries = _update_objects(entries, updating_field=updating_field, updating_value=updating_value)
+    _end(session)
+
+
 def update_reference_field(identifying_value, updating_field, updating_value, filter_by_title=False, filter_by_doi=False):
+    """
+    Updates a field or fields within the References database table.
+
+    Parameters
+    ----------
+    See 'update_entry_field'
+
+    """
     session = Session()
     if filter_by_title:
         entries = session.query(tables.References).filter_by(title = identifying_value).all()
@@ -148,14 +207,13 @@ def update_reference_field(identifying_value, updating_field, updating_value, fi
         _end(session)
         return
 
-    for entry in entries:
-        setattr(entry, updating_field, updating_value)
-
+    entries = _update_objects(entries, updating_field=updating_field, updating_value=updating_value)
     _end(session)
 
 
-def _create_entry_table_obj(paper_info):
+def create_entry_table_obj(paper_info):
     entry = paper_info.entry
+    entry = entry.__dict__
 
     # Format some of the entry data
     keywords = entry.get('keywords')
@@ -168,10 +226,12 @@ def _create_entry_table_obj(paper_info):
         keywords = keywords,
         publication = entry.get('publication'),
         date = entry.get('date'),
+        year = entry.get('year'),
         volume = entry.get('volume'),
         pages = entry.get('pages'),
         doi = entry.get('doi'),
         abstract = entry.get('abstract'),
+        notes = entry.get('notes'),
 
         # Get attributes of the general paper_info object
         doi_prefix = paper_info.doi_prefix,
@@ -183,6 +243,58 @@ def _create_entry_table_obj(paper_info):
         ref_table_id = None
     )
     return db_entry
+
+
+def get_saved_entry_obj(obj):
+    session = Session()
+
+    if obj.doi is not None:
+        saved_obj = session.query(tables.MainPaperInfo).filter_by(doi=obj.doi).all()
+    elif obj.title is not None:
+        saved_obj = session.query(tables.MainPaperInfo).filter_by(title=obj.title).all()
+    else:
+        raise KeyError('No title or DOI found within updating entry')
+
+    if len(saved_obj) > 1:
+        raise DatabaseError('Multiple entries with the same DOI or title were found.')
+
+    import pdb
+    pdb.set_trace()
+
+    _end(session)
+
+    return saved_obj[0]
+
+
+def _update_objects(entries, updating_field, updating_value):
+    """
+    Handles all attribute setting to update database session objects.
+
+    Parameters
+    ----------
+    See 'update_entry_field'
+
+    """
+    # If there are multiple fields to be updated
+    if isinstance(updating_field, list):
+        # Check if there are unique values for each of the updating fields
+        if isinstance(updating_value, list) and len(updating_field) == len(updating_value):
+            tuples = zip(updating_field, updating_value)
+            for tuple in tuples:
+                for k, v in tuple:
+                    for entry in entries:
+                        setattr(entry, k, v)
+        # Otherwise, multiple fields are being updates to one value (unlikely)
+        else:
+            for entry in entries:
+                for field in updating_field:
+                    setattr(entry, field, updating_value)
+    # Otherwise, updating a single field with a single value
+    else:
+        for entry in entries:
+            setattr(entry, updating_field, updating_value)
+
+    return entries
 
 
 def _create_ref_table_obj(ref):
@@ -234,7 +346,7 @@ def _create_mapping_table_obj(main_paper_id, ref_paper_id, ordering):
 
 
 def _create_author_table_obj(main_paper_id, author):
-    affs = author.get('affiliations')
+    affs = author.affiliations
     affiliations = None
     if affs is not None:
         if isinstance(affs, list):
@@ -244,9 +356,9 @@ def _create_author_table_obj(main_paper_id, author):
 
     db_author_entry = tables.Authors(
         main_paper_id = main_paper_id,
-        name = author.get('name'),
+        name = author.name,
         affiliations = affiliations,
-        email = author.get('email')
+        email = author.email
     )
     return db_author_entry
 
@@ -284,7 +396,7 @@ def _fetch_id(session, table_name, doi, title):
     return primary_id
 
 
-def _create_paper_info_from_saved(main_paper, authors, refs):
+def _create_paper_info_from_saved(main_paper, authors, refs=None):
     """
     Parameters
     ----------

@@ -12,6 +12,5 @@ refs = session.query(tables.References).all()
 mapping = session.query(tables.RefMapping).all()
 
 
-
 import pdb
 pdb.set_trace()

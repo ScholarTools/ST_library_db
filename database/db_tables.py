@@ -44,6 +44,18 @@ class MainPaperInfo(Base):
     pdf_link = sql.Column(sql.VARCHAR)
     scraper_obj = sql.Column(sql.VARCHAR)
 
+    pii = sql.Column(sql.VARCHAR)
+    eid = sql.Column(sql.VARCHAR)
+    notes = sql.Column(sql.VARCHAR)
+    pubmed_id = sql.Column(sql.VARCHAR)
+    issn = sql.Column(sql.VARCHAR)
+
+    # This is used for comparisons with updated information.
+    fields = ['doi', 'doi_prefix', 'title', 'publication', 'date',
+              'year', 'volume', 'issue', 'pages', 'keywords', 'abstract',
+              'url', 'pdf_link', 'scraper_obj', 'pii', 'eid', 'notes',
+              'pubmed_id', 'issn']
+
     def __repr__(self):
         return u'' + \
         '      title: %s\n' % self.title + \
