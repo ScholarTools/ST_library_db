@@ -54,7 +54,7 @@ class MainPaperInfo(Base):
     fields = ['doi', 'doi_prefix', 'title', 'publication', 'date',
               'year', 'volume', 'issue', 'pages', 'keywords', 'abstract',
               'url', 'pdf_link', 'scraper_obj', 'pii', 'eid', 'notes',
-              'pubmed_id', 'issn']
+              'pubmed_id', 'issn', 'authors']
 
     def __repr__(self):
         return u'' + \
@@ -79,6 +79,15 @@ class Authors(Base):
     name = sql.Column(sql.VARCHAR)
     affiliations = sql.Column(sql.VARCHAR)
     email = sql.Column(sql.VARCHAR)
+
+    # This is used for comparisons with updated information.
+    fields = ['name', 'affiliations', 'email']
+
+    def __repr__(self):
+        return u'' + \
+        '        name: %s\n' % self.name + \
+        'affiliations: %s\n' % self.affiliations + \
+        '       email: %s\n' % self.email
 
 
 class References(Base):

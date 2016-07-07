@@ -36,9 +36,7 @@ def get_saved_info(doi):
     # Make into a PaperInfo object
     saved_paper_info = _create_paper_info_from_saved(main_paper=main_paper, authors=authors, refs=refs)
 
-    # Close Session
-    session.close()
-
+    _end(session)
     return saved_paper_info
 
 
@@ -167,7 +165,7 @@ def update_entry_field(identifying_value, updating_field, updating_value, filter
     _end(session)
 
 
-def update_author_field(identifying_value, updating_field, updating_value, filter_by_title=False, filter_by_doi=False):
+def update_author_field(main_paper_id, updating_field, updating_value):
     """
     Updates a field or fields within the Authors database table.
 
@@ -177,13 +175,10 @@ def update_author_field(identifying_value, updating_field, updating_value, filte
 
     """
     session = Session()
-    if filter_by_title:
-        entries = session.query(tables.Authors).filter_by(title = identifying_value).all()
-    elif filter_by_doi:
-        entries = session.query(tables.Authors).filter_by(doi = identifying_value).all()
-    else:
+    entries = session.query(tables.Authors).filter_by(main_paper_id = main_paper_id).all()
+    if len(entries) == 0:
         _end(session)
-        return
+        raise DatabaseError('No authors found')
 
     entries = _update_objects(entries, updating_field=updating_field, updating_value=updating_value)
     _end(session)
@@ -211,13 +206,53 @@ def update_reference_field(identifying_value, updating_field, updating_value, fi
     _end(session)
 
 
+def update_general_fields(identifying_value, updating_field, updating_value, filter_by_title=False, filter_by_doi=False,
+                          main_paper_id=None):
+    """
+    Updates a field or fields within the database.
+
+    Parameters
+    ----------
+    See 'update_entry_field'
+
+    """
+    session = Session()
+
+    if filter_by_title:
+        main_entries = session.query(tables.MainPaperInfo).filter_by(title = identifying_value).all()
+    elif filter_by_doi:
+        main_entries = session.query(tables.MainPaperInfo).filter_by(doi = identifying_value).all()
+    else:
+        _end(session)
+        return
+
+    if len(main_entries) == 0:
+        raise DatabaseError('No saved documents found.')
+
+    if main_paper_id is None:
+        main_paper_id = main_entries[0].id
+
+    author_entries = session.query(tables.Authors).filter_by(main_paper_id = main_paper_id).all()
+
+    zipped = zip(updating_field, updating_value)
+    for field, value in zipped:
+        # If the field is specific to a certain author, update the author objects
+        if field in ['name', 'affiliations', 'email']:
+            author_entries = _update_objects(author_entries, updating_field=field, updating_value=value)
+            continue
+        else:
+            main_entries = _update_objects(main_entries, updating_field=field, updating_value=value)
+
+    _end(session)
+
+
 def create_entry_table_obj(paper_info):
     entry = paper_info.entry
     entry = entry.__dict__
 
     # Format some of the entry data
     keywords = entry.get('keywords')
-    if entry.get('keywords') is not None:
+    if entry.get('keywords') is not None and isinstance(entry.get('keywords'), list):
         keywords = ', '.join(entry.get('keywords'))
 
     db_entry = tables.MainPaperInfo(
@@ -245,25 +280,85 @@ def create_entry_table_obj(paper_info):
     return db_entry
 
 
-def get_saved_entry_obj(obj):
+def get_saved_entry_obj(new_info):
     session = Session()
 
-    if obj.doi is not None:
-        saved_obj = session.query(tables.MainPaperInfo).filter_by(doi=obj.doi).all()
-    elif obj.title is not None:
-        saved_obj = session.query(tables.MainPaperInfo).filter_by(title=obj.title).all()
+    if new_info.doi is not None:
+        saved_obj = session.query(tables.MainPaperInfo).filter_by(doi=new_info.doi).all()
+    elif new_info.entry.title is not None:
+        saved_obj = session.query(tables.MainPaperInfo).filter_by(title=new_info.entry.title).all()
     else:
         raise KeyError('No title or DOI found within updating entry')
 
     if len(saved_obj) > 1:
         raise DatabaseError('Multiple entries with the same DOI or title were found.')
+    elif len(saved_obj) == 0:
+        raise DatabaseError('No saved paper with matching DOI or title was found.')
 
-    import pdb
-    pdb.set_trace()
+    saved_obj = saved_obj[0]
+    main_id = saved_obj.id
+
+    # Get author information
+    authors = session.query(tables.Authors).filter_by(main_paper_id=main_id).all()
+
+    # Get references for the main paper
+    refs = session.query(tables.References).join(tables.RefMapping).\
+        filter(tables.RefMapping.main_paper_id == main_id).all()
+
+    # Make into a PaperInfo object
+    saved_info = _create_paper_info_from_saved(main_paper=saved_obj, authors=authors, refs=refs)
+
+    saved_info.fields = saved_obj.fields
+    if authors is not None:
+        saved_info.author_fields = authors[0].fields
+    else:
+        saved_info.author_fields = None
+
+    saved_info.main_paper_id = main_id
 
     _end(session)
+    return saved_info
 
-    return saved_obj[0]
+
+def add_author(author_obj, main_paper_id):
+    session = Session()
+    author = tables.Authors(main_paper_id=main_paper_id,
+                            name = author_obj.get('name'),
+                            affiliations = author_obj.get('affiliations'),
+                            email = author_obj.get('email'))
+    session.add(author)
+    _end(session)
+
+
+def delete_author(author_obj, main_paper_id):
+    session = Session()
+    author = session.query(tables.Authors).filter_by(name=author_obj.get('name'), main_paper_id=main_paper_id).all()
+    if len(author) > 0:
+        session.delete(author[0])
+    _end(session)
+
+
+def add_reference(ref, main_paper_doi, main_paper_title):
+    session = Session()
+
+    # Add reference to ref table
+    db_ref_entry = _create_ref_table_obj(ref)
+    main_paper_id = _fetch_id(session=session, table_name=tables.MainPaperInfo, doi=main_paper_doi,
+                              title=main_paper_title)
+    db_ref_entry.main_table_id = main_paper_id
+    session.add(db_ref_entry)
+
+    # Add reference to RefMapping table to link to main paper
+    session.flush()
+
+    # Refresh the session so that the primary keys can be retrieved
+    # Then extract the IDs
+    session.refresh(db_ref_entry)
+
+    db_map_obj = _create_mapping_table_obj(main_paper_id, db_ref_entry.id)
+    session.add(db_map_obj)
+
+    _end(session)
 
 
 def _update_objects(entries, updating_field, updating_value):
@@ -336,7 +431,7 @@ def _create_ref_table_obj(ref):
     return db_ref_entry
 
 
-def _create_mapping_table_obj(main_paper_id, ref_paper_id, ordering):
+def _create_mapping_table_obj(main_paper_id, ref_paper_id, ordering=None):
     db_map_entry = tables.RefMapping(
         main_paper_id = main_paper_id,
         ref_paper_id = ref_paper_id,
@@ -383,17 +478,26 @@ def _fetch_id(session, table_name, doi, title):
         Primary key of the entry corresponding to 'doi' and/or 'title' within
          'table_name'
     """
-    doi_check = session.query(table_name).filter_by(doi=doi).all()
-    if len(doi_check) == 0:
-        title_check = session.query(table_name).filter_by(title=title).all()
-        if len(title_check) == 0:
-            primary_id = None
-        else:
-            primary_id = title_check[0].id
-    else:
-        primary_id = doi_check[0].id
 
-    return primary_id
+    if doi is not None:
+        paper = session.query(table_name).filter_by(doi = doi).all()
+        if len(paper) > 0:
+            main_paper_id = paper[0].id
+        else:
+            main_paper_id = None
+    elif title is not None:
+        paper = session.query(table_name).filter_by(title = title).all()
+        if len(paper) > 0:
+            main_paper_id = paper[0].id
+        else:
+            main_paper_id = None
+    else:
+        raise LookupError('Cannot establish main paper to link with references.')
+
+    if main_paper_id is None:
+        raise DatabaseError('Cannot find main paper.')
+
+    return main_paper_id
 
 
 def _create_paper_info_from_saved(main_paper, authors, refs=None):
