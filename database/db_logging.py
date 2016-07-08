@@ -248,7 +248,8 @@ def update_general_fields(identifying_value, updating_field, updating_value, fil
 
 def create_entry_table_obj(paper_info):
     entry = paper_info.entry
-    entry = entry.__dict__
+    if not isinstance(entry, dict):
+        entry = entry.__dict__
 
     # Format some of the entry data
     keywords = entry.get('keywords')
@@ -494,9 +495,6 @@ def _fetch_id(session, table_name, doi, title):
     else:
         raise LookupError('Cannot establish main paper to link with references.')
 
-    if main_paper_id is None:
-        raise DatabaseError('Cannot find main paper.')
-
     return main_paper_id
 
 
@@ -544,7 +542,8 @@ def _create_paper_info_from_saved(main_paper, authors, refs=None):
     # Create references list
     references = []
     for ref in refs:
-        rd = ref.__dict__
+        if not isinstance(ref, dict):
+            rd = ref.__dict__
         rd['authors'] = rd['authors'].split(', ')
         ref_obj = BaseRef()
         for k, v in rd.items():
