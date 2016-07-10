@@ -44,6 +44,8 @@ def log_info(paper_info):
     # Start a new Session
     session = Session()
 
+    #This doesn't work if there is no DOI
+    #------------------------------------
     doi = paper_info.doi.lower()
 
     # Check if the DOI is already in the main paper database

@@ -17,15 +17,18 @@ from database import db_tables as tables
 # then points it to create a papers.db file within pydb.
 
 package_path = os.path.dirname(os.path.realpath(__file__))
-path_parts = os.path.split(package_path)
-while path_parts[1] != 'ScholarTools':
-    path_parts = os.path.split(path_parts[0])
+
+db_path = os.path.join(package_path,'papers.db')
+
+#path_parts = os.path.split(package_path)
+#while path_parts[1] != 'ScholarTools':
+#    path_parts = os.path.split(path_parts[0])
 
 dialect = 'sqlite:///'
-path = path_parts[0] + '/ScholarTools/pydb/database/papers.db'
+#path = path_parts[0] + '/ScholarTools/pydb/database/papers.db'
 
 # Combine the dialect and path names to use as params for the engine
-engine_params = dialect + path
+engine_params = dialect + db_path
 
 engine = sql.create_engine(engine_params, echo=False)
 tables.Base.metadata.create_all(engine)
