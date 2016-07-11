@@ -44,21 +44,30 @@ def log_info(paper_info):
     # Start a new Session
     session = Session()
 
-    #This doesn't work if there is no DOI
-    #------------------------------------
-    doi = paper_info.doi.lower()
+    doi = getattr(paper_info, 'doi', None)
+    paper_info_entry = getattr(paper_info, 'entry', None)
+    if paper_info_entry is not None:
+        title = paper_info_entry.get('title')
+    else:
+        title = None
 
-    # Check if the DOI is already in the main paper database
-    existing_doi = session.query(tables.MainPaperInfo).filter_by(doi=doi).all()
-    if len(existing_doi) > 0:
-        return
-        #raise DatabaseError('Paper already exists in database')
+    if doi is not None:
+        doi = doi.lower()
+
+        # Check if the DOI is already in the main paper database
+        existing_doi = session.query(tables.MainPaperInfo).filter_by(doi=doi).all()
+        if len(existing_doi) > 0:
+            return
+    elif title is not None:
+        existing_title = session.query(tables.MainPaperInfo).filter_by(title=title).all()
+        if len(existing_title) > 0:
+            return
 
     # Create entry for main paper table
     main_entry = create_entry_table_obj(paper_info)
 
     # Check if this paper has already been referenced and is in the references table
-    ref_table_id = _fetch_id(session=session, table_name=tables.References, doi=doi, title=main_entry.title)
+    ref_table_id = _fetch_id(session=session, table_name=tables.References, doi=doi, title=title)
 
     main_entry.ref_table_id = ref_table_id
 
@@ -71,14 +80,13 @@ def log_info(paper_info):
     main_paper_id = main_entry.id
 
     # Add author information to author database
-    entry = paper_info.entry
-    if entry is not None:
-        for a in entry.authors:
+    if paper_info_entry is not None and getattr(paper_info_entry, 'authors', None) is not None:
+        for a in paper_info_entry.authors:
             db_author_entry = _create_author_table_obj(main_paper_id=main_paper_id, author=a)
             session.add(db_author_entry)
 
     # Add each reference to the references table
-    refs = paper_info.references
+    refs = getattr(paper_info, 'references', None)
     ref_list = []
     if refs is not None:
         for ref in refs:
@@ -461,7 +469,7 @@ def _create_author_table_obj(main_paper_id, author):
     return db_author_entry
 
 
-def _fetch_id(session, table_name, doi, title):
+def _fetch_id(session, table_name, doi=None, title=None):
     """
     For a given paper, it looks to see if it already exists in a table
     'table_name' and if so, returns the primary key of its entry in that table.
