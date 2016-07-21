@@ -47,7 +47,10 @@ def log_info(paper_info):
     doi = getattr(paper_info, 'doi', None)
     paper_info_entry = getattr(paper_info, 'entry', None)
     if paper_info_entry is not None:
-        title = paper_info_entry.get('title')
+        #import pdb
+        #pdb.set_trace()
+        title = getattr(paper_info_entry, 'title', None)
+        #title = paper_info_entry.get('title')
     else:
         title = None
 
@@ -304,6 +307,8 @@ def get_saved_entry_obj(new_info):
     if len(saved_obj) > 1:
         raise DatabaseError('Multiple entries with the same DOI or title were found.')
     elif len(saved_obj) == 0:
+        import pdb
+        pdb.set_trace()
         raise DatabaseError('No saved paper with matching DOI or title was found.')
 
     saved_obj = saved_obj[0]
