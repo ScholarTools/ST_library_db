@@ -17,7 +17,7 @@ def get_saved_info(doi):
 
     # Get papers with the requested DOI
     # This should only be 1
-    main_results = session.query(tables.MainPaperInfo).filter_by(doi=doi).all()
+    main_results = session.query(tables.MainPaperInfo).filter((tables.MainPaperInfo.doi == doi) | (tables.MainPaperInfo.doi ==doi.lower())).all()
     if len(main_results) > 1:
         raise DatabaseError('Multiple papers with the same DOI found')
     elif len(main_results) == 0:
@@ -45,6 +45,7 @@ def log_info(paper_info):
     session = Session()
 
     doi = getattr(paper_info, 'doi', None)
+
     paper_info_entry = getattr(paper_info, 'entry', None)
     if paper_info_entry is not None:
         #import pdb
@@ -197,7 +198,8 @@ def update_author_field(main_paper_id, updating_field, updating_value):
     _end(session)
 
 
-def update_reference_field(identifying_value, updating_field, updating_value, filter_by_title=False, filter_by_doi=False):
+def update_reference_field(identifying_value, updating_field, updating_value, citing_doi=None, authors=None,
+                           filter_by_title=False, filter_by_doi=False, filter_by_authors=False):
     """
     Updates a field or fields within the References database table.
 
@@ -209,8 +211,26 @@ def update_reference_field(identifying_value, updating_field, updating_value, fi
     session = Session()
     if filter_by_title:
         entries = session.query(tables.References).filter_by(title = identifying_value).all()
+        import pdb
+        pdb.set_trace()
     elif filter_by_doi:
         entries = session.query(tables.References).filter_by(doi = identifying_value).all()
+    elif filter_by_authors:
+        # If filtering by authors, the DOI of the citing paper is also needed
+        # Assuming only authors and year are given, paper can still be uniquely identified
+        # by using authors, year, and citing DOI.
+        if citing_doi is None:
+            _end(session)
+            return
+
+        # If authors is a list, turn into a string of all authors
+        if isinstance(authors, list):
+            authors = ', '.join(authors)
+
+        main_paper_id = session.query(tables.MainPaperInfo).filter_by(doi = citing_doi).first().id
+        entries = session.query(tables.References).filter((tables.References.date == identifying_value) &
+                                                          (tables.References.authors == authors) &
+                                                          (tables.References.main_table_id == main_paper_id))
     else:
         _end(session)
         return
@@ -392,9 +412,8 @@ def _update_objects(entries, updating_field, updating_value):
         if isinstance(updating_value, list) and len(updating_field) == len(updating_value):
             tuples = zip(updating_field, updating_value)
             for tuple in tuples:
-                for k, v in tuple:
-                    for entry in entries:
-                        setattr(entry, k, v)
+                for entry in entries:
+                    setattr(entry, tuple[0], tuple[1])
         # Otherwise, multiple fields are being updates to one value (unlikely)
         else:
             for entry in entries:
