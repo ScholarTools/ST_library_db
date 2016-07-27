@@ -1,5 +1,8 @@
 *.db
 
+# Scratch/test files
+db_scratch.py
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

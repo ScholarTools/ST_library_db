@@ -4,7 +4,7 @@ import datetime
 # Third party imports
 
 # Local imports
-from reference_resolver.rr_errors import *
+from database.db_errors import *
 import database.db_tables as tables
 from database import Session
 from pypub.paper_info import PaperInfo
@@ -19,7 +19,7 @@ def get_saved_info(doi):
     # This should only be 1
     main_results = session.query(tables.MainPaperInfo).filter((tables.MainPaperInfo.doi == doi) | (tables.MainPaperInfo.doi ==doi.lower())).all()
     if len(main_results) > 1:
-        raise DatabaseError('Multiple papers with the same DOI found')
+        raise MultipleDoiError('Multiple papers with the same DOI found')
     elif len(main_results) == 0:
         return None
 
