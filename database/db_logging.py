@@ -252,9 +252,10 @@ def update_general_fields(identifying_value, updating_field, updating_value, fil
     session = Session()
 
     if filter_by_title:
-        main_entries = session.query(tables.MainPaperInfo).filter_by(title = identifying_value).all()
+        # Case-insensitive search for matching with title
+        main_entries = session.query(tables.MainPaperInfo).filter(tables.MainPaperInfo.title.ilike(identifying_value)).all()
     elif filter_by_doi:
-        main_entries = session.query(tables.MainPaperInfo).filter_by(doi = identifying_value).all()
+        main_entries = session.query(tables.MainPaperInfo).filter(tables.MainPaperInfo.doi.ilike(identifying_value)).all()
     else:
         _end(session)
         return
@@ -393,6 +394,17 @@ def add_reference(ref, main_paper_doi, main_paper_title):
 
     db_map_obj = _create_mapping_table_obj(main_paper_id, db_ref_entry.id)
     session.add(db_map_obj)
+
+    _end(session)
+
+
+def follow_refs_forward(doi):
+    session = Session()
+
+    # Look for all references to the paper with the given DOI
+    ref_instances = session.query(tables.References).filter(tables.References.doi.ilike(doi)).all()
+    import pdb
+    pdb.set_trace()
 
     _end(session)
 
