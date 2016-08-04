@@ -40,6 +40,33 @@ def get_saved_info(doi):
     return saved_paper_info
 
 
+def get_references_from_db(doi):
+    # Start a new Session
+    session = Session()
+
+    # Get papers with the requested DOI
+    # This should only be 1
+    main_results = session.query(tables.MainPaperInfo).filter((tables.MainPaperInfo.doi == doi) | (tables.MainPaperInfo.doi ==doi.lower())).all()
+    if len(main_results) > 1:
+        raise MultipleDoiError('Multiple papers with the same DOI found')
+    elif len(main_results) == 0:
+        return None
+
+    main_paper = main_results[0]
+    main_id = main_paper.id
+
+    # Get references for the main paper
+    refs = session.query(tables.References).join(tables.RefMapping).\
+        filter(tables.RefMapping.main_paper_id == main_id).all()
+
+    # Make into a PaperInfo object
+    references = _create_reference_list_from_saved(refs=refs)
+
+    _end(session)
+    return references
+
+
+
 def log_info(paper_info):
     # Start a new Session
     session = Session()
@@ -375,25 +402,32 @@ def delete_author(author_obj, main_paper_id):
     _end(session)
 
 
-def add_reference(ref, main_paper_doi, main_paper_title):
+def add_references(refs, main_paper_doi, main_paper_title=None):
     session = Session()
 
-    # Add reference to ref table
-    db_ref_entry = _create_ref_table_obj(ref)
+
+    # Get the main paper ID
     main_paper_id = _fetch_id(session=session, table_name=tables.MainPaperInfo, doi=main_paper_doi,
                               title=main_paper_title)
-    db_ref_entry.main_table_id = main_paper_id
-    session.add(db_ref_entry)
+    if main_paper_id is None:
+        raise LookupError('Main citing paper could not be located in database to add references.')
 
-    # Add reference to RefMapping table to link to main paper
-    session.flush()
+    for ref in refs:
+        # Add reference to ref table
+        db_ref_entry = _create_ref_table_obj(ref)
 
-    # Refresh the session so that the primary keys can be retrieved
-    # Then extract the IDs
-    session.refresh(db_ref_entry)
+        db_ref_entry.main_table_id = main_paper_id
+        session.add(db_ref_entry)
 
-    db_map_obj = _create_mapping_table_obj(main_paper_id, db_ref_entry.id)
-    session.add(db_map_obj)
+        # Add reference to RefMapping table to link to main paper
+        session.flush()
+
+        # Refresh the session so that the primary keys can be retrieved
+        # Then extract the IDs
+        session.refresh(db_ref_entry)
+
+        db_map_obj = _create_mapping_table_obj(main_paper_id, db_ref_entry.id)
+        session.add(db_map_obj)
 
     _end(session)
 
@@ -403,10 +437,14 @@ def follow_refs_forward(doi):
 
     # Look for all references to the paper with the given DOI
     ref_instances = session.query(tables.References).filter(tables.References.doi.ilike(doi)).all()
-    import pdb
-    pdb.set_trace()
+    citing_ids = [x.main_table_id for x in ref_instances]
+
+    papers = session.query(tables.MainPaperInfo).filter(tables.MainPaperInfo.id.in_(citing_ids))
+
+    paper_list = _create_entry_list_from_saved(main_entries=papers, session=session)
 
     _end(session)
+    return paper_list
 
 
 def _update_objects(entries, updating_field, updating_value):
@@ -585,20 +623,87 @@ def _create_paper_info_from_saved(main_paper, authors, refs=None):
     entry_obj.authors = author_list
     saved_info.entry = entry_obj
 
+    references = _create_reference_list_from_saved(refs=refs)
+    saved_info.references = references
+
+    return saved_info
+
+
+def _create_reference_list_from_saved(refs=None):
+    """
+    Parameters
+    ----------
+    main_paper : list of tables.Paper objects
+    authors : list of tables.Authors objects
+    refs : list of tables.References objects
+
+    Returns
+    -------
+
+    """
     # Create references list
     references = []
+
+    if refs is None:
+        return references
+
+    # Formatting each reference entry
     for ref in refs:
         if not isinstance(ref, dict):
             rd = ref.__dict__
+
+        import pdb
+        pdb.set_trace()
+
         rd['authors'] = rd['authors'].split(', ')
         ref_obj = BaseRef()
         for k, v in rd.items():
             if k not in ('timestamp', '_sa_instance_state'):
                 setattr(ref_obj, k, v)
         references.append(ref_obj)
-    saved_info.references = references
 
-    return saved_info
+    return references
+
+
+def _create_entry_list_from_saved(main_entries=None, session=None):
+    """
+    Parameters
+    ----------
+    main_paper : list of tables.Paper objects
+    authors : list of tables.Authors objects
+    refs : list of tables.References objects
+
+    Returns
+    -------
+
+    """
+    if session is None:
+        session = Session()
+
+    # Create references list
+    entries = []
+
+    if main_entries is None:
+        return entries
+
+    # Formatting each reference entry
+    for ent in main_entries:
+        if not isinstance(ent, dict):
+            ed = ent.__dict__
+
+        authors = session.query(tables.Authors).filter_by(main_paper_id=ent.id).all()
+        author_names = [a.name for a in authors]
+
+        ed['authors'] = '; '.join(author_names)
+
+        ref_obj = BaseRef()
+        for k, v in ed.items():
+            if k not in ('timestamp', '_sa_instance_state'):
+                setattr(ref_obj, k, v)
+        entries.append(ref_obj)
+
+    return entries
+
 
 
 def _end(session):
