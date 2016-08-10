@@ -41,6 +41,19 @@ def get_saved_info(doi):
 
 
 def get_references_from_db(doi):
+    """
+
+    Parameters
+    ----------
+    doi
+
+    Returns
+    -------
+    references - list of references, made from References table in database
+    bool - False if there is no main paper entry, True if there is.
+        This is used for adding references to the corresponding main paper.
+
+    """
     # Start a new Session
     session = Session()
 
@@ -50,7 +63,7 @@ def get_references_from_db(doi):
     if len(main_results) > 1:
         raise MultipleDoiError('Multiple papers with the same DOI found')
     elif len(main_results) == 0:
-        return None
+        return None, False
 
     main_paper = main_results[0]
     main_id = main_paper.id
@@ -63,11 +76,10 @@ def get_references_from_db(doi):
     references = _create_reference_list_from_saved(refs=refs)
 
     _end(session)
-    return references
+    return references, True
 
 
-
-def log_info(paper_info):
+def log_info(paper_info, has_file=None):
     # Start a new Session
     session = Session()
 
@@ -75,10 +87,7 @@ def log_info(paper_info):
 
     paper_info_entry = getattr(paper_info, 'entry', None)
     if paper_info_entry is not None:
-        #import pdb
-        #pdb.set_trace()
         title = getattr(paper_info_entry, 'title', None)
-        #title = paper_info_entry.get('title')
     else:
         title = None
 
@@ -96,6 +105,11 @@ def log_info(paper_info):
 
     # Create entry for main paper table
     main_entry = create_entry_table_obj(paper_info)
+    if has_file is not None:
+        if has_file:
+            main_entry.has_file = 1
+        else:
+            main_entry.has_file = 0
 
     # Check if this paper has already been referenced and is in the references table
     ref_table_id = _fetch_id(session=session, table_name=tables.References, doi=doi, title=title)
@@ -651,9 +665,6 @@ def _create_reference_list_from_saved(refs=None):
     for ref in refs:
         if not isinstance(ref, dict):
             rd = ref.__dict__
-
-        import pdb
-        pdb.set_trace()
 
         rd['authors'] = rd['authors'].split(', ')
         ref_obj = BaseRef()

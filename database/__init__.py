@@ -18,14 +18,10 @@ from database import db_tables as tables
 
 package_path = os.path.dirname(os.path.realpath(__file__))
 
+
+# SQLite is used to maintain a local database
 db_path = os.path.join(package_path,'papers.db')
-
-#path_parts = os.path.split(package_path)
-#while path_parts[1] != 'ScholarTools':
-#    path_parts = os.path.split(path_parts[0])
-
 dialect = 'sqlite:///'
-#path = path_parts[0] + '/ScholarTools/pydb/database/papers.db'
 
 # Combine the dialect and path names to use as params for the engine
 engine_params = dialect + db_path

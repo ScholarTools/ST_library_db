@@ -1,6 +1,6 @@
 from database.db_logging import *
 
-doi = '10.1016/S0304-3991(00)00076-0'
+doi = '10.1007/s10237-006-0048-8'
 
 delete_info(doi)
 

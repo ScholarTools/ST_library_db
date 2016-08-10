@@ -44,6 +44,8 @@ class MainPaperInfo(Base):
     pdf_link = sql.Column(sql.VARCHAR)
     scraper_obj = sql.Column(sql.VARCHAR)
 
+    has_file = sql.Column(sql.INTEGER)
+
     pii = sql.Column(sql.VARCHAR)
     eid = sql.Column(sql.VARCHAR)
     notes = sql.Column(sql.VARCHAR)
