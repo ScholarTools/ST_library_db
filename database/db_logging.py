@@ -11,6 +11,24 @@ from pypub.paper_info import PaperInfo
 from pypub.scrapers.base_objects import *
 
 
+def main_paper_search_wrapper(key, value):
+    # Simple wrapper for filtering by one row entry
+    session = Session()
+    query_results = session.query(tables.MainPaperInfo).filter_by(**{key: value}).all()
+    result_objects = _create_entry_list_from_saved(main_entries=query_results, session=session)
+    _end(session)
+    return result_objects
+
+
+def get_all_main_papers():
+    # Returns entirety of MainPaperInfo table
+    session = Session()
+    results = session.query(tables.MainPaperInfo).all()
+    result_objects = _create_entry_list_from_saved(main_entries=results, session=session)
+    _end(session)
+    return result_objects
+
+
 def get_saved_info(doi):
     # Start a new Session
     session = Session()
@@ -79,7 +97,7 @@ def get_references_from_db(doi):
     return references, True
 
 
-def log_info(paper_info, has_file=None):
+def log_info(paper_info, has_file=None, in_lib=1):
     # Start a new Session
     session = Session()
 
@@ -110,6 +128,8 @@ def log_info(paper_info, has_file=None):
             main_entry.has_file = 1
         else:
             main_entry.has_file = 0
+
+    main_entry.in_lib = in_lib
 
     # Check if this paper has already been referenced and is in the references table
     ref_table_id = _fetch_id(session=session, table_name=tables.References, doi=doi, title=title)

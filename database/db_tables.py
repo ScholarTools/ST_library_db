@@ -45,6 +45,9 @@ class MainPaperInfo(Base):
     scraper_obj = sql.Column(sql.VARCHAR)
 
     has_file = sql.Column(sql.INTEGER)
+    in_lib = sql.Column(sql.INTEGER)
+    valid_doi = sql.Column(sql.INTEGER)
+    verification_timestamp = sql.Column(sql.TIMESTAMP)
 
     pii = sql.Column(sql.VARCHAR)
     eid = sql.Column(sql.VARCHAR)
