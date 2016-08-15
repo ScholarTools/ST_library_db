@@ -110,6 +110,7 @@ class References(Base):
     issue = sql.Column(sql.VARCHAR)
     series = sql.Column(sql.VARCHAR)
     date = sql.Column(sql.VARCHAR)
+    year = sql.Column(sql.VARCHAR)
     pages = sql.Column(sql.VARCHAR)
     doi = sql.Column(sql.VARCHAR)
     pii = sql.Column(sql.VARCHAR)

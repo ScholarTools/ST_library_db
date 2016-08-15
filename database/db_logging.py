@@ -446,6 +446,10 @@ def add_references(refs, main_paper_doi, main_paper_title=None):
     if main_paper_id is None:
         raise LookupError('Main citing paper could not be located in database to add references.')
 
+    # Refs needs to be a list to handle multiple references at once.
+    if isinstance(refs, dict):
+        refs = [refs]
+
     for ref in refs:
         # Add reference to ref table
         db_ref_entry = _create_ref_table_obj(ref)
@@ -522,6 +526,7 @@ def _create_ref_table_obj(ref):
             issue = ref.get('issue'),
             series = ref.get('series'),
             date = ref.get('date'),
+            year = ref.get('year'),
             pages = ref.get('pages'),
             doi = ref.get('doi'),
             pii = ref.get('pii'),
