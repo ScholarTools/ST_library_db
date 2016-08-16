@@ -351,6 +351,11 @@ def create_entry_table_obj(paper_info):
     if entry.get('keywords') is not None and isinstance(entry.get('keywords'), list):
         keywords = ', '.join(entry.get('keywords'))
 
+    # Make all DOIs lowercase
+    doi = entry.get('doi')
+    if doi is not None:
+        doi = doi.lower()
+
     db_entry = tables.MainPaperInfo(
         # Get attributes of the paper_info.entry field
         title = entry.get('title'),
@@ -360,7 +365,7 @@ def create_entry_table_obj(paper_info):
         year = entry.get('year'),
         volume = entry.get('volume'),
         pages = entry.get('pages'),
-        doi = entry.get('doi'),
+        doi = doi,
         abstract = entry.get('abstract'),
         notes = entry.get('notes'),
 
@@ -389,8 +394,6 @@ def get_saved_entry_obj(new_info):
     if len(saved_obj) > 1:
         raise DatabaseError('Multiple entries with the same DOI or title were found.')
     elif len(saved_obj) == 0:
-        import pdb
-        pdb.set_trace()
         raise DatabaseError('No saved paper with matching DOI or title was found.')
 
     saved_obj = saved_obj[0]
@@ -516,6 +519,11 @@ def _update_objects(entries, updating_field, updating_value):
 
 
 def _create_ref_table_obj(ref):
+    # Make all DOIs lowercase
+    doi = ref.get('doi')
+    if doi is not None:
+        doi = doi.lower()
+
     db_ref_entry = tables.References(
             # Get standard ref information
             ref_id = ref.get('ref_id'),
@@ -528,7 +536,7 @@ def _create_ref_table_obj(ref):
             date = ref.get('date'),
             year = ref.get('year'),
             pages = ref.get('pages'),
-            doi = ref.get('doi'),
+            doi = doi,
             pii = ref.get('pii'),
             citation = ref.get('citation'),
 
@@ -604,7 +612,7 @@ def _fetch_id(session, table_name, doi=None, title=None):
     """
 
     if doi is not None:
-        paper = session.query(table_name).filter_by(doi = doi).all()
+        paper = session.query(table_name).filter((table_name.doi == doi) | (table_name.doi == doi.lower())).all()
         if len(paper) > 0:
             main_paper_id = paper[0].id
         else:
