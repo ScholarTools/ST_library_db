@@ -180,7 +180,7 @@ def log_info(paper_info, has_file=None, in_lib=1):
     _end(session)
 
 
-def delete_info(doi):
+def delete_info(doi=None, title=None):
     """
     Note that this will rarely be used and is mainly for debugging
         and manual database management reasons. Even if a user opts to
@@ -190,23 +190,33 @@ def delete_info(doi):
     """
     session = Session()
 
-    matching_entries = session.query(tables.MainPaperInfo).filter_by(doi = doi).all()
+    if doi is not None:
+        matching_entries = session.query(tables.MainPaperInfo).filter_by(doi = doi).all()
+    elif title is not None:
+        matching_entries = session.query(tables.MainPaperInfo).filter_by(title = title).all()
+    else:
+        raise KeyError('No information given to delete_info.')
+
+    # Extract the main IDs for the entry information
     ids = []
     for entry in matching_entries:
         ids.append(entry.id)
         session.delete(entry)
 
+    # Delete all references, reference maps, and authors related to the IDs
     for id in ids:
         refs = session.query(tables.References).join(tables.RefMapping).\
             filter(tables.RefMapping.main_paper_id == id).all()
         for ref in refs:
             session.delete(ref)
+
         entry_map = session.query(tables.RefMapping).filter_by(main_paper_id = id).all()
         for map in entry_map:
             session.delete(map)
 
-    import pdb
-    pdb.set_trace()
+        authors = session.query(tables.Authors).filter_by(main_paper_id = id).all()
+        for author in authors:
+            session.delete(author)
 
     _end(session)
 
