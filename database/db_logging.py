@@ -180,47 +180,6 @@ def log_info(paper_info, has_file=None, in_lib=1):
     _end(session)
 
 
-def delete_info(doi=None, title=None):
-    """
-    Note that this will rarely be used and is mainly for debugging
-        and manual database management reasons. Even if a user opts to
-        delete a document from his/her Mendeley library, the information
-        will not be deleted from the database in case it is to be
-        retrieved again later.
-    """
-    session = Session()
-
-    if doi is not None:
-        matching_entries = session.query(tables.MainPaperInfo).filter_by(doi = doi).all()
-    elif title is not None:
-        matching_entries = session.query(tables.MainPaperInfo).filter_by(title = title).all()
-    else:
-        raise KeyError('No information given to delete_info.')
-
-    # Extract the main IDs for the entry information
-    ids = []
-    for entry in matching_entries:
-        ids.append(entry.id)
-        session.delete(entry)
-
-    # Delete all references, reference maps, and authors related to the IDs
-    for id in ids:
-        refs = session.query(tables.References).join(tables.RefMapping).\
-            filter(tables.RefMapping.main_paper_id == id).all()
-        for ref in refs:
-            session.delete(ref)
-
-        entry_map = session.query(tables.RefMapping).filter_by(main_paper_id = id).all()
-        for map in entry_map:
-            session.delete(map)
-
-        authors = session.query(tables.Authors).filter_by(main_paper_id = id).all()
-        for author in authors:
-            session.delete(author)
-
-    _end(session)
-
-
 def update_entry_field(identifying_value, updating_field, updating_value, filter_by_title=False, filter_by_doi=False):
     """
     Updates a field or fields within the MainPaperInfo database table.
@@ -441,11 +400,83 @@ def add_author(author_obj, main_paper_id):
     _end(session)
 
 
+def delete_info(doi=None, title=None):
+    """
+    Note that this will rarely be used and is mainly for debugging
+        and manual database management reasons. Even if a user opts to
+        delete a document from his/her Mendeley library, the information
+        will not be deleted from the database in case it is to be
+        retrieved again later.
+    """
+    session = Session()
+
+    if doi is not None:
+        matching_entries = session.query(tables.MainPaperInfo).filter_by(doi = doi).all()
+    elif title is not None:
+        matching_entries = session.query(tables.MainPaperInfo).filter_by(title = title).all()
+    else:
+        raise KeyError('No information given to delete_info.')
+
+    # Extract the main IDs for the entry information
+    ids = []
+    for entry in matching_entries:
+        ids.append(entry.id)
+        session.delete(entry)
+
+    # Delete all references, reference maps, and authors related to the IDs
+    for id in ids:
+        refs = session.query(tables.References).join(tables.RefMapping).\
+            filter(tables.RefMapping.main_paper_id == id).all()
+        for ref in refs:
+            session.delete(ref)
+
+        entry_map = session.query(tables.RefMapping).filter_by(main_paper_id = id).all()
+        for map in entry_map:
+            session.delete(map)
+
+        authors = session.query(tables.Authors).filter_by(main_paper_id = id).all()
+        for author in authors:
+            session.delete(author)
+
+    _end(session)
+
+
 def delete_author(author_obj, main_paper_id):
     session = Session()
     author = session.query(tables.Authors).filter_by(name=author_obj.get('name'), main_paper_id=main_paper_id).all()
     if len(author) > 0:
         session.delete(author[0])
+    _end(session)
+
+
+def delete_reference(ref):
+    session = Session()
+    ref = ref.__dict__
+    contents = ref.items()
+    populated_contents = {}
+
+    # Create a dict with only the populated fields of ref_dict
+    for item in contents:
+        if item[1] is not None:
+            populated_contents[item[0]] = item[1]
+
+    # Make all DOIs lowercase
+    if populated_contents.get('doi') is not None:
+        populated_contents['doi'] = populated_contents['doi'].lower()
+
+    # Fix author list
+    if populated_contents.get('authors') is not None:
+        if isinstance(populated_contents['authors'], list):
+            populated_contents['authors'] = ', '.join(populated_contents['authors'])
+
+    reference = session.query(tables.References).filter_by(**populated_contents).all()
+    if len(reference) == 0:
+        _end(session)
+        return
+    else:
+        for ref in reference:
+            session.delete(ref)
+
     _end(session)
 
 
