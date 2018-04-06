@@ -1,3 +1,5 @@
+#JAH: This is now out of date
+
 from database import db_logging as db
 from database import db_tables as tables
 from database import Session
