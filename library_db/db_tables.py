@@ -1,3 +1,17 @@
+"""
+Tables
+-----------------
+ref_mapping
+    main_paper_id
+    ref_paper_id
+    ordering
+main_paper_info
+authors
+references
+linked_notes
+
+"""
+
 # Third party imports
 import sqlalchemy as sql
 from sqlalchemy.ext.declarative import declarative_base
@@ -11,6 +25,15 @@ class RefMapping(Base):
     Both 'original_paper' and 'ref_paper' are unique identifying integers. See
     the References table for mapping to information.
     The 'ordering' column keeps track of reference order within a paper.
+    
+    So we might have:
+        
+    Jim et al. citing Chris et al. as #2
+    
+    Jim et al. - main_paper_id
+    Chris et al. - ref_paper_id
+    #2 - ordering
+    
     """
     __tablename__ = 'ref_mapping'
 
@@ -24,6 +47,33 @@ class RefMapping(Base):
 
 
 class MainPaperInfo(Base):
+    """
+    abstract
+    date
+    doi
+    doi_prefix
+    has_file
+    in_lib
+    issue
+    keywords
+    pages
+    pdf_link
+    publication
+    scraper_obj
+    title
+    url
+    valid_doi
+    verification_timestamp
+    volume
+    year
+    
+    pii
+    eid
+    notes
+    pubmed_id
+    issn
+    """
+    
     __tablename__ = 'main_paper_info'
 
     id = sql.Column(sql.INTEGER, primary_key=True)
@@ -77,6 +127,12 @@ class MainPaperInfo(Base):
 
 
 class Authors(Base):
+    """
+    affiliations
+    email
+    main_paper_id
+    name
+    """
     __tablename__ = 'authors'
 
     id = sql.Column(sql.INTEGER, primary_key=True)

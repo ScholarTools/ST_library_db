@@ -1,3 +1,6 @@
+#Moved everything to db_session.py
+
+"""
 # Standard imports
 import os
 
@@ -6,7 +9,7 @@ import sqlalchemy as sql
 from sqlalchemy.orm import sessionmaker
 
 # Local imports
-from database import db_tables as tables
+from . import db_tables as tables
 
 
 # These database functions can be called from a number of
@@ -29,4 +32,6 @@ engine_params = dialect + db_path
 engine = sql.create_engine(engine_params, echo=False)
 tables.Base.metadata.create_all(engine)
 Session = sessionmaker(bind=engine)
+
+"""
 
