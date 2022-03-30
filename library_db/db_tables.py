@@ -10,6 +10,13 @@ authors
 references
 linked_notes
 
+
+
+DocumentTags: Document ID and string
+
+TODO: Include MESH
+
+
 """
 
 # Third party imports
@@ -48,68 +55,87 @@ class RefMapping(Base):
 
 class MainPaperInfo(Base):
     """
-    abstract
-    date
-    doi
-    doi_prefix
-    has_file
-    in_lib
-    issue
-    keywords
-    pages
-    pdf_link
-    publication
-    scraper_obj
-    title
-    url
-    valid_doi
-    verification_timestamp
-    volume
-    year
-    
-    pii
-    eid
-    notes
-    pubmed_id
-    issn
     """
     
     __tablename__ = 'main_paper_info'
 
     id = sql.Column(sql.INTEGER, primary_key=True)
+    
+    #This is the primary key in the References DB - if it exists
     ref_table_id = sql.Column(sql.INTEGER)
 
-    doi = sql.Column(sql.VARCHAR)
-    doi_prefix = sql.Column(sql.VARCHAR)
-    title = sql.Column(sql.VARCHAR)
-    publication = sql.Column(sql.VARCHAR)
-    date = sql.Column(sql.VARCHAR)
-    year = sql.Column(sql.VARCHAR)
-    volume = sql.Column(sql.VARCHAR)
-    issue = sql.Column(sql.VARCHAR)
-    pages = sql.Column(sql.VARCHAR)
-    keywords = sql.Column(sql.VARCHAR)
-    abstract = sql.Column(sql.VARCHAR)
-    url = sql.Column(sql.VARCHAR)
-    pdf_link = sql.Column(sql.VARCHAR)
-    scraper_obj = sql.Column(sql.VARCHAR)
+    #TODO: Document type
+    #- journal article
+    #- book chapter
+    #- other
 
-    has_file = sql.Column(sql.INTEGER)
+    #Info about the document
+    #--------------------------------------------
+    abstract = sql.Column(sql.VARCHAR)
+    date = sql.Column(sql.VARCHAR)
+    keywords = sql.Column(sql.VARCHAR)
+    pages = sql.Column(sql.VARCHAR)
+    publication = sql.Column(sql.VARCHAR)
+    title = sql.Column(sql.VARCHAR)
+    volume = sql.Column(sql.VARCHAR)
+    year = sql.Column(sql.VARCHAR)
+    
+    
+    #What is this url?
+    url = sql.Column(sql.VARCHAR)
+    
+    
+    #Link to pdf to download
+    pdf_link = sql.Column(sql.VARCHAR)
+    
+    #???What about supplemental info?
+    #???What about a html link
+    
+    #Internal Meta
+    #--------------------------------
+    #This can be used to allow the adding of documents that are not in the 
+    #library but that we know about ...
     in_lib = sql.Column(sql.INTEGER)
+    
+    #lib_id = 
+    
+    #??????? - I think this should instead be the url of the document ...
+    #Although we get this from the DOI so I'm inclined to remove it
+    #scraper_obj = sql.Column(sql.VARCHAR)
+
+    #????? - this looks like it is passed to the constructor ...
+    #I think this indicates that the library thing has an element
+    has_file = sql.Column(sql.INTEGER)
+    
     valid_doi = sql.Column(sql.INTEGER)
+    #Verification of what??? the DOI?????
     verification_timestamp = sql.Column(sql.TIMESTAMP)
 
+    #Document IDs ----------------------------
     pii = sql.Column(sql.VARCHAR)
     eid = sql.Column(sql.VARCHAR)
-    notes = sql.Column(sql.VARCHAR)
-    pubmed_id = sql.Column(sql.VARCHAR)
+    pmid = sql.Column(sql.VARCHAR)
+    doi = sql.Column(sql.VARCHAR)
+    doi_prefix = sql.Column(sql.VARCHAR)
+    #TODO: This is ambiguous because we could have 
+    #e_issn 
+    #p_issn
+    #issn
+    #issn_l
     issn = sql.Column(sql.VARCHAR)
-
+    
+    #User Info
+    #------------------------------------
+    notes = sql.Column(sql.VARCHAR)
+    #TODO: tags ...
+    
+    
+    #JAH: Why isn't this everything?????
     # This is used for comparisons with updated information.
     fields = ['doi', 'doi_prefix', 'title', 'publication', 'date',
               'year', 'volume', 'issue', 'pages', 'keywords', 'abstract',
               'url', 'pdf_link', 'scraper_obj', 'pii', 'eid', 'notes',
-              'pubmed_id', 'issn', 'authors']
+              'pmid', 'issn', 'authors']
 
     def __repr__(self):
         return u'' + \
@@ -153,6 +179,19 @@ class Authors(Base):
 
 class References(Base):
     __tablename__ = 'references'
+    
+    
+    
+    #For references
+    #create as a foreign key?
+    #
+    #Props
+    #-----------
+    #refs
+    #refs_fetch_date
+    #refs_source_type
+    #- url
+    #- manual entry
 
     id = sql.Column(sql.INTEGER, primary_key=True)
     main_table_id = sql.Column(sql.INTEGER)
@@ -181,7 +220,11 @@ class References(Base):
     ads = sql.Column(sql.VARCHAR)
     scopus_link = sql.Column(sql.VARCHAR)
     pdf_link = sql.Column(sql.VARCHAR)
-    scopus_cite_count = sql.Column(sql.VARCHAR)
+    
+    #This could be outdated, I don't think we'll use this for now
+    #scopus_cite_count = sql.Column(sql.VARCHAR)
+    
+    #???? What is this????
     aps_full_text = sql.Column(sql.VARCHAR)
 
     # Make a timestamp
